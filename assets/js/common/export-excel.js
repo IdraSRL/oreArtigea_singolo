@@ -171,39 +171,24 @@ class ExcelExporter {
       const oreCol = this.findColumnByPattern(worksheet, dayHeaderCell.row, CELL_PATTERNS.hours);
       
       // Popola i dati per ogni giorno
-      for (let day = 1; day <= daysInMonth; day++) {
-        const rowIndex = startRow + day - 1;
-        const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const dayData = employeeDays[dateStr] || {};
+        // Crea un foglio per ogni dipendente
+        const workbook = XLSX.utils.book_new();
         
-        // Non includere date future
-        const today = new Date();
-        const currentDate = new Date(dateStr);
-        if (currentDate > today) continue;
-        
-        // Ferie
-        if (ferieCol && dayData.ferie) {
-          worksheet.getCell(rowIndex, ferieCol).value = 'X';
-        }
-        
-        // Malattia
-        if (malattiaCol && dayData.malattia) {
-          worksheet.getCell(rowIndex, malattiaCol).value = 'X';
-        }
-        
-        // Ore lavorate
-        if (oreCol && Array.isArray(dayData.attività) && dayData.attività.length) {
-          const flat = dayData.attività.map(a => ({
-            minutes: parseInt(a.minuti, 10) || 0,
-            multiplier: parseInt(a.moltiplicatore, 10) || 1,
-            people: parseInt(a.persone, 10) || 1
-          }));
+        for (const [employeeName, employeeDays] of Object.entries(data)) {
+          const worksheetData = this.createEmployeeSheet(employeeName, employeeDays, year, month, daysInMonth, monthName);
+          const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
           
-          const rawMinutes = calculateTotalMinutes(flat);
-          const decHours = formatDecimalHours(rawMinutes, 2);
-          worksheet.getCell(rowIndex, oreCol).value = decHours;
+          // Imposta larghezza colonne
+          const colWidths = [
+            { wch: 15 }, // Colonna Dipendente/Tipo
+            ...Array(daysInMonth).fill({ wch: 4 }), // Giorni del mese
+            { wch: 8 }   // Totale
+          ];
+          worksheet['!cols'] = colWidths;
+          
+          XLSX.utils.book_append_sheet(workbook, worksheet, employeeName);
         }
-      }
+          const decHours = formatDecimalHours(rawMinutes, 2);
       
       // Aggiorna totali
       const totalRow = startRow + daysInMonth + 1;
@@ -212,6 +197,154 @@ class ExcelExporter {
         const totalHours = formatDecimalHours(employeeData.totMinuti, 2);
         totalCell.value = totalHours;
       }
+    }
+
+    /**
+     * Crea i dati per il foglio di un singolo dipendente
+     */
+    createEmployeeSheet(employeeName, employeeDays, year, month, daysInMonth, monthName) {
+      const worksheetData = [];
+      
+      // Titolo principale
+      worksheetData.push([`Ore Dipendenti - ${monthName} ${year}`]);
+      worksheetData.push([]); // Riga vuota
+      
+      // Nome dipendente
+      worksheetData.push([employeeName]);
+      
+      // Header con giorni del mese
+      const headerRow = ['Tipo'];
+      for (let d = 1; d <= daysInMonth; d++) {
+        headerRow.push(`${d},00`);
+      }
+      headerRow.push('Totale');
+      worksheetData.push(headerRow);
+      
+      // Calcola i dati del dipendente
+      const employeeData = this.calculateEmployeeData(employeeDays, year, month, daysInMonth);
+      
+      // Riga Ferie
+      const ferieRow = ['Ferie'];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = d.toString().padStart(2, '0');
+        const monthStr = month.toString().padStart(2, '0');
+        const dateStr = `${year}-${monthStr}-${dayStr}`;
+        const dayData = employeeDays[dateStr] || {};
+        
+        // Non includere date future
+        const today = new Date();
+        const currentDate = new Date(dateStr);
+        if (currentDate > today) {
+          ferieRow.push('');
+          continue;
+        }
+        
+        ferieRow.push(dayData.ferie ? 'X' : '');
+      }
+      ferieRow.push(''); // Totale ferie (vuoto)
+      worksheetData.push(ferieRow);
+      
+      // Riga Malattia
+      const malattiaRow = ['Malattia'];
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = d.toString().padStart(2, '0');
+        const monthStr = month.toString().padStart(2, '0');
+        const dateStr = `${year}-${monthStr}-${dayStr}`;
+        const dayData = employeeDays[dateStr] || {};
+        
+        // Non includere date future
+        const today = new Date();
+        const currentDate = new Date(dateStr);
+        if (currentDate > today) {
+          malattiaRow.push('');
+          continue;
+        }
+        
+        malattiaRow.push(dayData.malattia ? 'X' : '');
+      }
+      malattiaRow.push(''); // Totale malattia (vuoto)
+      worksheetData.push(malattiaRow);
+      
+      // Riga Ore
+      const oreRow = ['Ore'];
+      let totalHours = 0;
+      
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = d.toString().padStart(2, '0');
+        const monthStr = month.toString().padStart(2, '0');
+        const dateStr = `${year}-${monthStr}-${dayStr}`;
+        const dayData = employeeDays[dateStr] || {};
+        
+        // Non includere date future
+        const today = new Date();
+        const currentDate = new Date(dateStr);
+        if (currentDate > today) {
+          oreRow.push('');
+          continue;
+        }
+        
+        if (Array.isArray(dayData.attività) && dayData.attività.length && !dayData.ferie && !dayData.malattia && !dayData.riposo) {
+          const flat = dayData.attività.map(a => ({
+            minutes: parseInt(a.minuti, 10) || 0,
+            multiplier: parseInt(a.moltiplicatore, 10) || 1,
+            people: parseInt(a.persone, 10) || 1
+          }));
+          
+          const rawMinutes = calculateTotalMinutes(flat);
+          const decHours = formatDecimalHours(rawMinutes, 2);
+          
+          // Formatta come nell'immagine (es: 1,92)
+          const formattedHours = decHours.toLocaleString('it-IT', { 
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2 
+          });
+          
+          oreRow.push(formattedHours);
+          totalHours += decHours;
+        } else {
+          oreRow.push('');
+        }
+      }
+      
+      // Totale ore formattato
+      const totalFormatted = totalHours.toLocaleString('it-IT', { 
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2 
+      });
+      oreRow.push(totalFormatted);
+      worksheetData.push(oreRow);
+      
+      return worksheetData;
+    }
+
+    /**
+     * Calcola i dati aggregati per un dipendente (versione semplificata)
+     */
+    calculateEmployeeData(days, year, month, daysInMonth) {
+      let totalRawMinutes = 0;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dayStr = d.toString().padStart(2, '0');
+        const monthStr = month.toString().padStart(2, '0');
+        const dateStr = `${year}-${monthStr}-${dayStr}`;
+        const record = days[dateStr] || {};
+
+        // Ore lavorate (solo se non è ferie, malattia o riposo)
+        if (Array.isArray(record.attività) && record.attività.length && !record.ferie && !record.malattia && !record.riposo) {
+          const flat = record.attività.map(a => ({
+            minutes: parseInt(a.minuti, 10) || 0,
+            multiplier: parseInt(a.moltiplicatore, 10) || 1,
+            people: parseInt(a.persone, 10) || 1
+          }));
+
+          const rawMinutes = calculateTotalMinutes(flat);
+          totalRawMinutes += rawMinutes;
+        }
+      }
+
+      return {
+        totMinuti: totalRawMinutes
+      };
     }
   }
 
