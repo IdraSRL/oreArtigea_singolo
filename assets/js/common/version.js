@@ -4,10 +4,10 @@
  */
 
 // Versione principale dell'applicazione
-export const APP_VERSION = '2.17.0';
+export const APP_VERSION = '2.18.0';
 
 // Informazioni aggiuntive (opzionali)
-export const BUILD_DATE = '2025-01-27-excel-fix';
+export const BUILD_DATE = '2025-01-27-excel-template';
 export const BUILD_INFO = {
   version: APP_VERSION,
   buildDate: BUILD_DATE,
