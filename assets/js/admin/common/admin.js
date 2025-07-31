@@ -4,11 +4,11 @@ import { AuthService } from "../../auth/auth.js";
 import { FirestoreService } from "../../common/firestore-service.js";
 import { doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
 import { db } from "../../common/firebase-config.js";
-import { exportToExcel } from "../../common/export-excel.js";
 import {
   calculateTotalMinutes,
   formatDecimalHours
 } from '../../common/time-utilis.js';
+import { exportToExcel } from "../../common/export-excel.js";
 
 
 let currentData = {};
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     const [year, month] = monthSelect.value.split('-');
-    exportToExcel(currentData, year, Number(month));
+    exportToExcel(currentData, parseInt(year, 10), parseInt(month, 10));
   };
 
   // Carica dati iniziali

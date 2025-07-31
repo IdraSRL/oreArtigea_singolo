@@ -1,5 +1,4 @@
-// time-entry-core.js
-
+// time-entry.js v2.0 - File consolidato e semplificato
 import { db } from "../common/firebase-config.js";
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js';
 import { FirestoreService } from "../common/firestore-service.js";
@@ -15,7 +14,7 @@ function formatISO(date) {
 }
 
 /**
- * Recupera da Firestore l'array statico (es. 'appartamenti')
+ * Recupera da Firestore l'array statico
  */
 async function fetchDataArray(varName) {
   try {
@@ -34,23 +33,31 @@ async function fetchDataArray(varName) {
 export const TimeEntryService = {
   activityTypes: {
     appartamenti: { name: "Appartamenti", color: "#B71C6B" },
-    uffici:        { name: "Uffici",       color: "#006669" },
-    bnb:           { name: "BnB",          color: "#B38F00" },
-    pst:           { name: "PST",          color: "#283593" }
+    uffici: { name: "Uffici", color: "#006669" },
+    bnb: { name: "BnB", color: "#B38F00" },
+    pst: { name: "PST", color: "#283593" }
   },
 
   /**
-   * Restituisce le attività disponibili per un tipo, leggendo da Firestore
+   * Restituisce le attività disponibili per un tipo
    */
   async getActivitiesForType(type) {
     const map = { appartamenti: 'appartamenti', uffici: 'uffici', bnb: 'bnb' };
     const varName = map[type];
     if (!varName) return [];
+    
     const arr = await fetchDataArray(varName);
     return arr.map(item => {
-      const [name, minutes] = item.split('|');
-      return { name: name.trim(), minutes: parseInt(minutes, 10) || 0 };
-    });
+      if (typeof item === 'string') {
+        const [name, minutes] = item.split('|');
+        return { name: name.trim(), minutes: parseInt(minutes, 10) || 0 };
+      } else if (item && typeof item === 'object') {
+        const name = item.name ?? item.nome ?? '';
+        const minutes = item.minutes ?? item.minuti ?? 0;
+        return { name: String(name), minutes: Number(minutes) };
+      }
+      return null;
+    }).filter(x => x && x.name);
   },
 
   /**
@@ -64,43 +71,42 @@ export const TimeEntryService = {
   },
 
   /**
-   * Salva su Firestore le attività di un dipendente in una data specifica
+   * Salva su Firestore le attività di un dipendente
    */
   async saveTimeEntry(username, date, activities, status) {
     try {
       const clean = activities.map(a => ({
-        tipo:           a.type       || null,
-        nome:           a.name       || null,
-        minuti:         Number(a.minutes)   || 0,
-        persone:        Number(a.people)    || 1,
+        tipo: a.type || null,
+        nome: a.name || null,
+        minuti: Number(a.minutes) || 0,
+        persone: Number(a.people) || 1,
         moltiplicatore: Number(a.multiplier) || 1
       }));
 
       const existing = await FirestoreService.getEmployeeDay(username, date);
-      const prev = (existing.success && existing.data) ? existing.data : {};
-      const prevActs = Array.isArray(prev.attività) ? prev.attività : [];
-
+      const prev = (existing.success && existing.data?.attività) ? existing.data.attività : [];
+      
+      // Merge delle attività esistenti con quelle nuove
       const mapActs = {};
-      prevActs.forEach(act => mapActs[`${act.nome}|${act.tipo}`] = act);
+      prev.forEach(act => {
+        if (act.nome && act.tipo) {
+          mapActs[`${act.nome}|${act.tipo}`] = act;
+        }
+      });
+      
       clean.forEach(act => {
-        const key = `${act.nome}|${act.tipo}`;
-        if (!mapActs[key]) {
-          mapActs[key] = act;
-        } else {
-          const ex = mapActs[key];
-          ex.minuti = ex.minuti + act.minuti;
-          ex.persone = act.persone;
-          ex.moltiplicatore = act.moltiplicatore;
+        if (act.nome && act.tipo) {
+          mapActs[`${act.nome}|${act.tipo}`] = act;
         }
       });
 
       const finalActs = Object.values(mapActs);
       const payload = {
-        data:      date,
-        attività:  finalActs,
-        riposo:    status.riposo   ?? prev.riposo   ?? false,
-        ferie:     status.ferie    ?? prev.ferie    ?? false,
-        malattia:  status.malattia ?? prev.malattia ?? false
+        data: date,
+        attività: finalActs,
+        riposo: Boolean(status.riposo),
+        ferie: Boolean(status.ferie),
+        malattia: Boolean(status.malattia)
       };
 
       return await FirestoreService.saveEmployeeDay(username, date, payload);
@@ -110,4 +116,3 @@ export const TimeEntryService = {
     }
   }
 };
-

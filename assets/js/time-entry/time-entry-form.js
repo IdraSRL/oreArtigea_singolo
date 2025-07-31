@@ -1,7 +1,7 @@
 // time-entry-form.js
 
 import { AuthService } from '../auth/auth.js';
-import { TimeEntryService } from './time-entry-core.js';
+import { TimeEntryService } from './time-entry.js';
 import { FirestoreService } from '../common/firestore-service.js';
 import {
   calculateTotalMinutes,
