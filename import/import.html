@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Importa Dati da data.js</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; max-width: 600px; margin: auto; }
+    h1 { margin-bottom: .5rem; }
+    .variable-list { list-style: none; padding: 0; margin: 1rem 0; }
+    .variable-list li { margin: .25rem 0; }
+    button { padding: .5rem 1rem; font-size: 1rem; }
+    #status { margin-top: 1rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Importazione Dati in Firestore</h1>
+
+  <p>Seleziona quali insiemi di dati importare:</p>
+  <ul id="variablesContainer" class="variable-list"></ul>
+
+  <button id="importBtn">Avvia Importazione</button>
+  <p id="status">In attesa di avvio importazione...</p>
+
+  <script type="module">
+    // 1) Import Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+    // 2) Import everything da data.js
+    import * as data from "./data.js";
+
+    // 3) Separa la configurazione dai dataset
+    const { firebaseConfig, ...datasets } = data;
+
+    // 4) Popola dinamicamente la lista di checkbox
+    const container = document.getElementById('variablesContainer');
+    Object.keys(datasets).forEach(name => {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <label>
+          <input type="checkbox" value="${name}" checked />
+          ${name}
+        </label>
+      `;
+      container.appendChild(li);
+    });
+
+    // 5) Inizializza Firebase + Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 6) Funzione di importazione
+    async function importData() {
+      const statusEl = document.getElementById('status');
+      const importBtn = document.getElementById('importBtn');
+      importBtn.disabled = true;
+
+      const selected = Array.from(
+        container.querySelectorAll('input[type="checkbox"]:checked')
+      ).map(cb => cb.value);
+
+      if (selected.length === 0) {
+        alert('Seleziona almeno un dataset da importare.');
+        importBtn.disabled = false;
+        return;
+      }
+
+      statusEl.textContent = 'Avvio importazione…';
+      try {
+        for (const name of selected) {
+          statusEl.textContent = `Importando ${name}…`;
+          const docRef = doc(db, 'Data', name);
+          await setDoc(docRef, { [name]: datasets[name] });
+        }
+        statusEl.textContent = 'Importazione completata con successo!';
+      } catch (err) {
+        console.error('Errore durante importData:', err);
+        statusEl.textContent = 'Errore durante importazione. Controlla console.';
+      } finally {
+        importBtn.disabled = false;
+      }
+    }
+
+    // 7) Evento sul bottone
+    document.getElementById('importBtn').addEventListener('click', importData);
+  </script>
+</body>
+</html>

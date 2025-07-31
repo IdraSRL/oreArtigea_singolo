@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <!-- Sistema di Cache-Busting -->
+<script type="module" src="../assets/js/common/loader.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pannello Admin – Bigliettini BnB</title>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+  <!-- Flatpickr CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+
+  <!-- Stili base -->
+  <link rel="stylesheet" href="../assets/css/style.css" />
+
+  <!-- Override scroll orizzontale nei modal -->
+  <style>
+    .modal-dialog {
+      max-width: 90vw;
+      margin: 1.5rem auto;
+    }
+
+    .modal-content,
+    .modal-body {
+      overflow-x: auto;
+    }
+
+    .modal-body .table-responsive table {
+      width: max-content;
+      min-width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- NAVBAR -->
+  <nav class="navbar navbar-dark bg-dark">
+    <div class="container">
+      <a class="navbar-brand" href="#">Pannello Admin</a>
+      <div class="d-flex">
+        <span class="navbar-text me-2 version-display">Caricamento...</span>
+        <span class="navbar-text me-3" id="userDisplay">Admin</span>
+        <button class="btn btn-outline-light btn-sm" id="logoutBtn">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <!-- TABS Amministrazione -->
+    <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="ore-tab" data-bs-toggle="tab" data-bs-target="#orePane" type="button"
+          role="tab" aria-controls="orePane" aria-selected="true">Riepilogo Ore</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="data-tab" data-bs-toggle="tab" data-bs-target="#dataPane" type="button" role="tab"
+          aria-controls="dataPane" aria-selected="false">
+          Gestione Data
+        </button>
+      </li>
+    </ul>
+
+
+    <div class="tab-content" id="adminTabsContent">
+      <!-- PANE RIEPILOGO ORE -->
+      <div class="tab-pane fade show active" id="orePane" role="tabpanel" aria-labelledby="ore-tab">
+        <div class="card mb-4 border-secondary">
+          <div class="card-body">
+            <h3 class="card-title mb-4">Riepilogo Ore Dipendenti</h3>
+            <div class="row mb-4">
+              <div class="col-md-5">
+                <label for="employeeSelect" class="form-label">Dipendente</label>
+                <select class="form-select" id="employeeSelect" style="width:100%">
+                </select>
+              </div>
+              <div class="col-md-5">
+                <label for="monthSelect" class="form-label">Mese</label>
+                <select class="form-select" id="monthSelect" style="width:100%"></select>
+              </div>
+              <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" id="exportBtn">Esporta Excel</button>
+              </div>
+            </div>
+            <div id="summaryContainer" class="mt-4">
+              <p class="text-muted">Seleziona un dipendente e un mese per visualizzare i dati.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Dettaglio Giornaliero -->
+        <div class="modal fade" id="dayDetailModal" tabindex="-1" aria-labelledby="dayDetailModalLabel"
+          aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content bg-dark">
+              <div class="modal-header">
+                <h5 class="modal-title" id="dayDetailModalLabel">Dettaglio Giornaliero</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                  aria-label="Chiudi"></button>
+              </div>
+              <div class="modal-body">
+                <div id="dayDetail">
+                  <p class="text-muted">Seleziona un giorno dalla tabella per visualizzare i dettagli.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <!-- ==== PANE GESTIONE DATA ==== -->
+    <div class="tab-pane fade" id="dataPane" role="tabpanel" aria-labelledby="data-tab">
+      <div class="container py-4">
+        <div class="d-flex mb-3">
+          <button id="add-group" class="btn btn-primary me-2">+ Nuovo Gruppo</button>
+        </div>
+        <!-- Nav tabs dinamiche -->
+        <ul class="nav nav-tabs" id="groupTabs" role="tablist"></ul>
+        <!-- Tab panes dinamiche -->
+        <div class="tab-content border p-3" id="groupTabContent"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+      <div class="spinner"></div>
+      <p>Caricamento dati...</p>
+    </div>
+  </div>
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- Firebase + i tuoi script -->
+<!-- Firebase configs -->
+
+<!-- Auth & Firestore service -->
+<script type="module" src="../assets/js/auth/auth.js"></script>
+<script type="module" src="../assets/js/common/firestore-service.js"></script>
+
+<!-- Admin core scripts -->
+<script type="module" src="../assets/js/admin/common/admin.js"></script>
+<script type="module" src="../assets/js/admin/common/admin-data.js"></script>
+
+<script src="../assets/js/common/input-date-polyfill.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+<!-- Cleanup script per prevenire conflitti -->
+<script>
+  // Cleanup quando si cambia tab
+  document.addEventListener('DOMContentLoaded', () => {
+    const tabs = document.querySelectorAll('#adminTabs button[data-bs-toggle="tab"]');
+    tabs.forEach(tab => {
+      tab.addEventListener('shown.bs.tab', (e) => {
+        // Se stiamo lasciando la tab gradimento, cleanup
+        if (e.relatedTarget && e.relatedTarget.id === 'gradimento-tab') {
+          if (window.cleanupGradimento) {
+            window.cleanupGradimento();
+          }
+        }
+      });
+    });
+
+  });
+</script>
+
+</body>
+
+</html>

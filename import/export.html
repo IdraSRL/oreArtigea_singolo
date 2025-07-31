@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Esporta Dati da Firestore</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; max-width: 600px; margin: auto; }
+    h1 { margin-bottom: .5rem; }
+    button { padding: .5rem 1rem; font-size: 1rem; }
+    #status { margin-top: 1rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Esportazione Dati Firestore</h1>
+  <p>Clicca per scaricare tutti i documenti della collection <code>Data</code> in formato JSON.</p>
+  <button id="exportBtn">Esporta Dati</button>
+  <p id="status">Pronto per esportare…</p>
+
+  <script type="module">
+    // 1) Import Firebase SDK
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore.js";
+
+    // 2) La tua configurazione
+    import { firebaseConfig } from "./data.js";
+
+    // 3) Inizializza app e DB
+    const app = initializeApp(firebaseConfig);
+    const db  = getFirestore(app);
+
+    // 4) Funzione di esportazione
+    async function exportData() {
+      const statusEl = document.getElementById('status');
+      const btn      = document.getElementById('exportBtn');
+      btn.disabled   = true;
+      statusEl.textContent = 'Recupero documenti…';
+
+      try {
+        // 4.1 Legge tutti i doc di Data
+        const snap = await getDocs(collection(db, "Data"));
+
+        // 4.2 Costruisce oggetto JS { docId: docData, … }
+        const exportObj = {};
+        snap.forEach(docSnap => {
+          exportObj[docSnap.id] = docSnap.data();
+        });
+
+        // 4.3 Serializza in JSON
+        const jsonStr = JSON.stringify(exportObj, null, 2);
+
+        // 4.4 Crea Blob e fa partire il download
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = 'data_export.json';
+        a.click();
+        URL.revokeObjectURL(url);
+
+        statusEl.textContent = 'Esportazione completata!';
+      } catch (err) {
+        console.error("Errore esportazione:", err);
+        statusEl.textContent = 'Errore durante l\'esportazione. Controlla console.';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // 5) Collego il click al pulsante
+    document.getElementById('exportBtn').addEventListener('click', exportData);
+  </script>
+</body>
+</html>
